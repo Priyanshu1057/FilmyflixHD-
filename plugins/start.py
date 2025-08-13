@@ -177,15 +177,17 @@ async def start_command(client: Client, message: Message):
                 print(f"Error updating notification with 'Get File Again' button: {e}")
     else:
         reply_markup = InlineKeyboardMarkup(
-            [
-                    [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/filmyflixhd_cluster")],
+            reply_markup = InlineKeyboardMarkup(
     [
-                    [InlineKeyboardButton("• ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ •", url="https://t.me/Filmyflixhd")],
-    [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
-
+        [InlineKeyboardButton("• ᴍᴏʀᴇ ᴄʜᴀɴɴᴇʟs •", url="https://t.me/filmyflixhd_cluster")],
+        [InlineKeyboardButton("• ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ •", url="https://t.me/Filmyflixhd")],
+        [
+            InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
+            InlineKeyboardButton("ʜᴇʟᴘ •", callback_data="help")
+        ]
     ]
+)
+
             ]
         )
         await message.reply_photo(
