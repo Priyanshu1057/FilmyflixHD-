@@ -42,7 +42,7 @@ FORCE_PIC = os.environ.get("FORCE_PIC", "https://envs.sh/d98.jpg")
 
 #--------------------------------------------
 HELP_TXT = "<b><blockquote>ᴛʜɪs ɪs ᴀɴ ғɪʟᴇ ᴛᴏ ʟɪɴᴋ ʙᴏᴛ ᴡᴏʀᴋ ғᴏʀ @FilmyflixHD\n\nsɪᴍᴘʟʏ ᴄʟɪᴄᴋ ᴏɴ ʟɪɴᴋ ᴀɴᴅ sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ ᴊᴏɪɴ ʙᴏᴛʜ ᴄʜᴀɴɴᴇʟs ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ ᴛʜᴀᴛs ɪᴛ.....!\n\n ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ <a href=http://t.me/FilmyflixHD_Supportbot/>FILMYFLIXHD</a></blockquote></b>"
-ABOUT_TXT = "<b><blockquote>n◈ sᴇʀɪᴇs ᴄʜᴀɴɴᴇʟ : <a href=https://t.me/+66cFF-sVtn05ZDE1>ᴡᴇʙsᴇʀɪᴇsғʟɪxʜᴅ</a>\n◈ ᴍᴏᴠɪᴇs : <a href=https://t.me/+I9eBKvoNzd03ZGRl>ᴍᴏᴠɪᴇsғʟɪxʜᴅ</a></blockquote></b>"
+ABOUT_TXT = "<b><blockquote>◈ ᴡᴇʙsᴇʀɪᴇs : <a href=https://t.me/+66cFF-sVtn05ZDE1>ᴡᴇʙsᴇʀɪᴇsғʟɪxʜᴅ</a>\n◈ ᴍᴏᴠɪᴇs : <a href=https://t.me/+I9eBKvoNzd03ZGRl>ᴍᴏᴠɪᴇsғʟɪxʜᴅ</a></blockquote></b>"
 #--------------------------------------------
 #--------------------------------------------
 START_MSG = os.environ.get("START_MESSAGE", "<b>ʜᴇʟʟᴏ {mention}\n\n<blockquote> ɪ ᴀᴍ ғɪʟᴇ sᴛᴏʀᴇ ʙᴏᴛ, ɪ ᴄᴀɴ sᴛᴏʀᴇ ᴘʀɪᴠᴀᴛᴇ ғɪʟᴇs ɪɴ sᴘᴇᴄɪғɪᴇᴅ ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴏᴛʜᴇʀ ᴜsᴇʀs ᴄᴀɴ ᴀᴄᴄᴇss ɪᴛ ғʀᴏᴍ sᴘᴇᴄɪᴀʟ ʟɪɴᴋ.</blockquote></b>")
@@ -67,7 +67,7 @@ CMD_TXT = """<blockquote><b>» ᴀᴅᴍɪɴ ᴄᴏᴍᴍᴀɴᴅs:</b></blockqu
 <b>›› /delreq :</b> Rᴇᴍᴏᴠᴇᴅ ʟᴇғᴛᴏᴠᴇʀ ɴᴏɴ-ʀᴇǫᴜᴇsᴛ ᴜsᴇʀs
 """
 #--------------------------------------------
-CUSTOM_CAPTION = os.environ.get("CUSTOM_CAPTION", "<b>• ʙʏ @nova_flix</b>") #set your Custom Caption here, Keep None for Disable Custom Caption
+CUSTOM_CAPTION = os.environ.get("CUSTOM_CAPTION", "<b>• ʙʏ @FilmyflixHD</b>") #set your Custom Caption here, Keep None for Disable Custom Caption
 PROTECT_CONTENT = True if os.environ.get('PROTECT_CONTENT', "False") == "True" else False #set True if you want to prevent users from forwarding files from bot
 #--------------------------------------------
 #Set true if you want Disable your Channel Posts Share button
