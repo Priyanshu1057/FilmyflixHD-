@@ -11,28 +11,35 @@ from helper_func import encode, get_message_id, admin
 async def batch(client: Client, message: Message):
     while True:
         try:
-            first_message = await client.ask(text = "Forward the First Message from DB Channel (with Quotes)..\n\nor Send the DB Channel Post Link", chat_id = message.from_user.id, filters=(filters.forwarded | (filters.text & ~filters.forwarded)), timeout=60)
+            first_message = await client.ask(
+                text="Forward the first message",
+                filters=filters.forwarded | (filters.text & ~filters.forwarded),
+                timeout=60
+            )
         except:
             return
         f_msg_id = await get_message_id(client, first_message)
         if f_msg_id:
             break
         else:
-            await first_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
+            await first_message.reply("❌ Error: This message is not from the DB channel or the link is taken.", quote=True)
             continue
 
     while True:
         try:
-            second_message = await client.ask(text = "Forward the Last Message from DB Channel (with Quotes)..\nor Send the DB Channel Post link", chat_id = message.from_user.id, filters=(filters.forwarded | (filters.text & ~filters.forwarded)), timeout=60)
+            second_message = await client.ask(
+                text="Forward the second message",
+                filters=filters.forwarded | (filters.text & ~filters.forwarded),
+                timeout=60
+            )
         except:
             return
         s_msg_id = await get_message_id(client, second_message)
         if s_msg_id:
             break
         else:
-            await second_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
+            await second_message.reply("❌ Error: This message is not from the DB channel or the link is taken.", quote=True)
             continue
-
 
     string = f"get-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
     base64_string = await encode(string)
@@ -40,46 +47,49 @@ async def batch(client: Client, message: Message):
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
     await second_message.reply_text(f"<b>Here is your link</b>\n\n{link}", quote=True, reply_markup=reply_markup)
 
-
-@Bot.on_message(filters.private & admin & filters.command('genlink'))
-async def link_generator(client: Client, message: Message):
+@Bot.on_message(filters.private & admin & filters.command("genlink"))
+async def gen_link(client: Client, message: Message):
     while True:
         try:
-            channel_message = await client.ask(text = "Forward Message from the DB Channel (with Quotes)..\nor Send the DB Channel Post link", chat_id = message.from_user.id, filters=(filters.forwarded | (filters.text & ~filters.forwarded)), timeout=60)
+            genlink_msg = await client.ask(text="Send me the link to generate", timeout=60)
         except:
             return
-        msg_id = await get_message_id(client, channel_message)
-        if msg_id:
-            break
-        else:
-            await channel_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is not taken from DB Channel", quote = True)
-            continue
+        await message.reply("🔗 Here you go!", quote=True)
+        async for genlink_msg in client.stream_chat_history(message.chat.id, limit=1):
+            try:
+                post_msg = await genlink_msg.copy(message.chat.id, disable_notification=True)
+                reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={post_msg.message_id}')]])
+                await message.reply("<b>Here is your telegram link:</b>\n\n" + f"https://t.me/{client.username}?start={post_msg.message_id}", reply_markup=reply_markup)
+            except Exception as e:
+                await message.reply(f"❌ Error generating link: {e}", quote=True)
+        break
 
-    base64_string = await encode(f"get-{msg_id * abs(client.db_channel.id)}")
-    link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
-    await channel_message.reply_text(f"<b>Here is your link</b>\n\n{link}", quote=True, reply_markup=reply_markup)
-
-
-@Bot.on_message(filters.private & admin & filters.command("custom_batch"))
-async def custom_batch(client: Client, message: Message):
+@Bot.on_message(filters.private & admin & filters.command("multibatch"))
+async def multibatch(client: Client, message: Message):
     collected = []
-    STOP_KEYBOARD = ReplyKeyboardMarkup([["STOP"]], resize_keyboard=True)
-
-    await message.reply("Send all messages you want to include in batch.\n\nPress STOP when you're done.", reply_markup=STOP_KEYBOARD)
+    await message.reply(
+        "Send all the files/messages you want to include in the batch.\n\nPress /done when you're finished, or /cancel to abort.",
+        reply_markup=ReplyKeyboardRemove()
+    )
 
     while True:
         try:
             user_msg = await client.ask(
                 chat_id=message.chat.id,
-                text="Waiting for files/messages...\nPress STOP to finish.",
-                timeout=60
+                text="Waiting for files/messages...\nSend /done to finish or /cancel to abort.",
+                timeout=300
             )
-        except asyncio.TimeoutError:
-            break
+        except TimeoutError:
+            await message.reply("❌ Batch cancelled due to inactivity.", reply_markup=ReplyKeyboardRemove())
+            return
 
-        if user_msg.text and user_msg.text.strip().upper() == "STOP":
-            break
+        if user_msg.text:
+            text = user_msg.text.strip().lower()
+            if text == "/done":
+                break
+            elif text == "/cancel":
+                await message.reply("❌ Batch cancelled.", reply_markup=ReplyKeyboardRemove())
+                return
 
         try:
             sent = await user_msg.copy(client.db_channel.id, disable_notification=True)
@@ -101,4 +111,4 @@ async def custom_batch(client: Client, message: Message):
     link = f"https://t.me/{client.username}?start={base64_string}"
 
     reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
-    await message.reply(f"<b>Here is your custom batch link:</b>\n\n{link}", reply_markup=reply_markup)
+    await message.reply(f"<b>Here is your multi-batch link:</b>\n\n{link}", reply_markup=reply_markup)
