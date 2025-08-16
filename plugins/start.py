@@ -5,7 +5,7 @@ import asyncio
 import logging
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from database import db
+from database.database import *
 from utils import decode, get_messages
 from config import ADMINS, FORCE_SUB_CHANNEL, LOG_CHANNEL, DELETE_TIME, DB_CHANNEL
 
