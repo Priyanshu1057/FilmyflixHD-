@@ -1,4 +1,4 @@
-#(Â©)Codexbotz
+#(©)Codexbotz
 
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -23,7 +23,7 @@ async def batch(client: Client, message: Message):
         if f_msg_id:
             break
         else:
-            await first_message.reply("âŒ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
+            await first_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
             continue
 
     while True:
@@ -35,14 +35,14 @@ async def batch(client: Client, message: Message):
         if s_msg_id:
             break
         else:
-            await second_message.reply("âŒ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
+            await second_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is taken from DB Channel", quote = True)
             continue
 
 
     string = f"get-{f_msg_id * abs(client.db_channel.id)}-{s_msg_id * abs(client.db_channel.id)}"
     base64_string = await encode(string)
     link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("ðŸ” Share URL", url=f'https://telegram.me/share/url?url={link}')]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
     await second_message.reply_text(f"**Here is your link**\n\n{link}", quote=True, reply_markup=reply_markup)
 
 
@@ -57,12 +57,12 @@ async def link_generator(client: Client, message: Message):
         if msg_id:
             break
         else:
-            await channel_message.reply("âŒ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is not taken from DB Channel", quote = True)
+            await channel_message.reply("❌ Error\n\nthis Forwarded Post is not from my DB Channel or this Link is not taken from DB Channel", quote = True)
             continue
 
     base64_string = await encode(f"get-{msg_id * abs(client.db_channel.id)}")
     link = f"https://t.me/{client.username}?start={base64_string}"
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("ðŸ” Share URL", url=f'https://telegram.me/share/url?url={link}')]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
     await channel_message.reply_text(f"**Here is your link**\n\n{link}", quote=True, reply_markup=reply_markup)
 
 
@@ -90,13 +90,13 @@ async def custom_batch(client: Client, message: Message):
             sent = await user_msg.copy(client.db_channel.id, disable_notification=True)
             collected.append(sent.id)
         except Exception as e:
-            await message.reply(f"âŒ Failed to store a message:\n`{e}`")
+            await message.reply(f"❌ Failed to store a message:\n`{e}`")
             continue
 
-    await message.reply("âœ… Batch collection complete.", reply_markup=ReplyKeyboardRemove())
+    await message.reply("✅ Batch collection complete.", reply_markup=ReplyKeyboardRemove())
 
     if not collected:
-        await message.reply("âŒ No messages were added to batch.")
+        await message.reply("❌ No messages were added to batch.")
         return
 
     start_id = collected[0] * abs(client.db_channel.id)
@@ -105,7 +105,7 @@ async def custom_batch(client: Client, message: Message):
     base64_string = await encode(string)
     link = f"https://t.me/{client.username}?start={base64_string}"
 
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("ðŸ” Share URL", url=f'https://telegram.me/share/url?url={link}')]])
+    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]])
     await message.reply(f"**Here is your custom batch link:**\n\n{link}", reply_markup=reply_markup)
 
 
@@ -115,7 +115,7 @@ async def multi_batch(client: Client, message: Message):
     
     # Check if user already has an active session
     if user_id in multibatch_sessions:
-        await message.reply("âŒ You already have an active multibatch session. Use /cancel to cancel it first.")
+        await message.reply("❌ You already have an active multibatch session. Use /cancel to cancel it first.")
         return
     
     # Initialize session
@@ -128,11 +128,11 @@ async def multi_batch(client: Client, message: Message):
     }
     
     await message.reply(
-        "ðŸ”„ **Multibatch Session Started**\n\n"
-        "ðŸ“ Forward multiple files/messages to me.\n"
-        "âœ… Send /done when you're finished.\n"
-        "âŒ Send /cancel to abort.\n\n"
-        "â° Session will auto-expire in 5 minutes if inactive."
+        "🔄 **Multibatch Session Started**\n\n"
+        "📁 Forward multiple files/messages to me.\n"
+        "✅ Send /done when you're finished.\n"
+        "❌ Send /cancel to abort.\n\n"
+        "⏰ Session will auto-expire in 5 minutes if inactive."
     )
     
     # Auto-cancel task
@@ -144,13 +144,13 @@ async def done_multibatch(client: Client, message: Message):
     user_id = message.from_user.id
     
     if user_id not in multibatch_sessions:
-        await message.reply("âŒ No active multibatch session found. Use /multibatch to start one.")
+        await message.reply("❌ No active multibatch session found. Use /multibatch to start one.")
         return
     
     session = multibatch_sessions[user_id]
     if not session['active']:
         del multibatch_sessions[user_id]
-        await message.reply("âŒ Session has expired. Use /multibatch to start a new one.")
+        await message.reply("❌ Session has expired. Use /multibatch to start a new one.")
         return
     
     collected = session['collected']
@@ -160,7 +160,7 @@ async def done_multibatch(client: Client, message: Message):
     del multibatch_sessions[user_id]
     
     if not collected:
-        await message.reply("âŒ No messages were collected in this batch.")
+        await message.reply("❌ No messages were collected in this batch.")
         return
     
     # Generate link
@@ -170,19 +170,16 @@ async def done_multibatch(client: Client, message: Message):
     base64_string = await encode(string)
     link = f"https://t.me/{client.username}?start={base64_string}"
     
-    # Create multibatch format link  
-    multi_batch_link = f"https://t.me/{client.username}?start=multi_batch_{session_id}_{base64_string}"
-    
     reply_markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("ðŸ“¦ Batch Link", url=link)],
-        [InlineKeyboardButton("ðŸ” Share URL", url=f'https://telegram.me/share/url?url={link}')]
+        [InlineKeyboardButton("📦 Batch Link", url=link)],
+        [InlineKeyboardButton("🔁 Share URL", url=f'https://telegram.me/share/url?url={link}')]
     ])
     
     await message.reply(
-        f"âœ… **Multibatch Complete!**\n\n"
-        f"ðŸ“Š **Files collected:** {len(collected)}\n"
-        f"ðŸ”— **Batch Link:** `{link}`\n\n"
-        f"ðŸŽ¯ **Multi-Batch ID:** `{session_id}`",
+        f"✅ **Multibatch Complete!**\n\n"
+        f"📊 **Files collected:** {len(collected)}\n"
+        f"🔗 **Batch Link:** `{link}`\n\n"
+        f"🎯 **Multi-Batch ID:** `{session_id}`",
         reply_markup=reply_markup
     )
 
@@ -192,7 +189,7 @@ async def cancel_multibatch(client: Client, message: Message):
     user_id = message.from_user.id
     
     if user_id not in multibatch_sessions:
-        await message.reply("âŒ No active multibatch session found.")
+        await message.reply("❌ No active multibatch session found.")
         return
     
     session = multibatch_sessions[user_id]
@@ -202,9 +199,9 @@ async def cancel_multibatch(client: Client, message: Message):
     del multibatch_sessions[user_id]
     
     await message.reply(
-        f"âŒ **Multibatch Session Cancelled**\n\n"
-        f"ðŸ“Š Files that were collected: {collected_count}\n"
-        f"ðŸ’¡ Use /multibatch to start a new session."
+        f"❌ **Multibatch Session Cancelled**\n\n"
+        f"📊 Files that were collected: {collected_count}\n"
+        f"💡 Use /multibatch to start a new session."
     )
 
 
@@ -220,7 +217,7 @@ async def handle_multibatch_files(client: Client, message: Message):
     session = multibatch_sessions[user_id]
     if not session['active']:
         del multibatch_sessions[user_id]
-        await message.reply("âŒ Session has expired. Use /multibatch to start a new one.")
+        await message.reply("❌ Session has expired. Use /multibatch to start a new one.")
         return
     
     try:
@@ -235,14 +232,14 @@ async def handle_multibatch_files(client: Client, message: Message):
         session['start_time'] = time.time()  # Reset timeout
         
         await message.reply(
-            f"âœ… **File Added to Batch**\n\n"
-            f"ðŸ“Š Total files: {len(session['collected'])}\n"
-            f"ðŸ†” Session ID: `{session['session_id']}`\n\n"
-            f"ðŸ“ Continue adding files or send /done to finish."
+            f"✅ **File Added to Batch**\n\n"
+            f"📊 Total files: {len(session['collected'])}\n"
+            f"🆔 Session ID: `{session['session_id']}`\n\n"
+            f"📁 Continue adding files or send /done to finish."
         )
         
     except Exception as e:
-        await message.reply(f"âŒ Failed to store file:\n`{e}`")
+        await message.reply(f"❌ Failed to store file:\n`{e}`")
 
 
 async def auto_cancel_session(client: Client, user_id: int, session_id: str):
@@ -260,9 +257,9 @@ async def auto_cancel_session(client: Client, user_id: int, session_id: str):
                 try:
                     await client.send_message(
                         chat_id=user_id,
-                        text=f"â° **Multibatch Session Auto-Expired**\n\n"
-                             f"ðŸ“Š Files collected: {collected_count}\n"
-                             f"ðŸ’¡ Use /multibatch to start a new session."
+                        text=f"⏰ **Multibatch Session Auto-Expired**\n\n"
+                             f"📊 Files collected: {collected_count}\n"
+                             f"💡 Use /multibatch to start a new session."
                     )
                 except Exception:
                     pass  # User might have blocked the bot
