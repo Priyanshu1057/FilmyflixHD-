@@ -1,276 +1,146 @@
-# Don't Remove Credit @CodeFlix_Bots, @rohit_1888
-# Ask Doubt on telegram @CodeflixSupport
-#
-# Copyright (C) 2025 by Codeflix-Bots@Github, < https://github.com/Codeflix-Bots >.
-#
-# This file is part of < https://github.com/Codeflix-Bots/FileStore > project,
-# and is released under the MIT License.
-# Please see < https://github.com/Codeflix-Bots/FileStore/blob/master/LICENSE >
-#
-# All rights reserved.
-#
+# (c) Priyanshu / Codeflix-Bots
+# Full start.py with Multi-Batch Next button support
 
 import asyncio
-import os
-import random
-import sys
-import time
-from datetime import datetime, timedelta
-from pyrogram import Client, filters, __version__
-from pyrogram.enums import ParseMode, ChatAction
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
-from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
-from bot import Bot
-from config import *
-from helper_func import *
-from database.database import *
+import logging
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from database.users_chats_db import db
+from utils import decode, get_messages
+from config import ADMINS, FORCE_SUB_CHANNEL, LOG_CHANNEL, DELETE_TIME, DB_CHANNEL
 
-BAN_SUPPORT = f"{BAN_SUPPORT}"
+logger = logging.getLogger(__name__)
 
-@Bot.on_message(filters.command('start') & filters.private)
-async def start_command(client: Client, message: Message):
+
+@Client.on_message(filters.private & filters.command("start"))
+async def start_handler(client, message):
     user_id = message.from_user.id
+    await db.add_user(user_id)
 
-    # Add user if not already present
-    if not await db.present_user(user_id):
+    # Force subscription check
+    if FORCE_SUB_CHANNEL:
         try:
-            await db.add_user(user_id)
-        except:
-            pass
-
-    # Check if user is banned
-    banned_users = await db.get_ban_users()
-    if user_id in banned_users:
-        return await message.reply_text(
-            "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
-            "<i>Contact support if you think this is a mistake.</i>",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
+            member = await client.get_chat_member(FORCE_SUB_CHANNEL, user_id)
+            if member.status in ("kicked", "banned"):
+                return await message.reply_text("🚫 You are banned from using this bot.")
+        except Exception:
+            # Ask to join
+            join_btn = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL}")]]
+            return await message.reply_text(
+                "⚠️ Please join our channel first.",
+                reply_markup=InlineKeyboardMarkup(join_btn)
             )
-        )
-    # ✅ Check Force Subscription
-    if not await is_subscribed(client, user_id):
-        #await temp.delete()
-        return await not_joined(client, message)
 
-    # File auto-delete time in seconds (Set your desired time in seconds here)
-    FILE_AUTO_DELETE = await db.get_del_timer()  # Example: 3600 seconds (1 hour)
+    # Decode start parameter
+    if len(message.command) > 1:
+        decoded = decode(message.command[1])
 
-    # Handle normal message flow
-    text = message.text
-    if len(text) > 7:
-        try:
-            base64_string = text.split(" ", 1)[1]
-        except IndexError:
-            return
+        # ✅ Multi-batch navigation
+        if decoded.startswith("mb-"):
+            ids = decoded.split("-")[1:]  # after 'mb'
+            if not ids:
+                return await message.reply_text("❌ Invalid multi-batch link.")
+            first_id = int(ids[0]) // abs(DB_CHANNEL)
+            # Store all ids in a session dict
+            await db.add_multibatch_session(user_id, ids)
 
-        string = await decode(base64_string)
-        argument = string.split("-")
-
-        ids = []
-        if len(argument) == 3:
-            try:
-                start = int(int(argument[1]) / abs(client.db_channel.id))
-                end = int(int(argument[2]) / abs(client.db_channel.id))
-                ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-            except Exception as e:
-                print(f"Error decoding IDs: {e}")
-                return
-
-        elif len(argument) == 2:
-            try:
-                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                print(f"Error decoding ID: {e}")
-                return
-
-        temp_msg = await message.reply("<b>Please wait...</b>")
-        try:
-            messages = await get_messages(client, ids)
-        except Exception as e:
-            await message.reply_text("Something went wrong!")
-            print(f"Error getting messages: {e}")
-            return
-        finally:
-            await temp_msg.delete()
- 
-        codeflix_msgs = []
-        for msg in messages:
-            caption = (CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, 
-                                             filename=msg.document.file_name) if bool(CUSTOM_CAPTION) and bool(msg.document)
-                       else ("" if not msg.caption else msg.caption.html))
-            reply_markup = msg.reply_markup if DISABLE_CHANNEL_BUTTON else None
-            try:
-                copied_msg = await msg.copy(
-                    chat_id=message.from_user.id,
-                    caption=caption,
-                    parse_mode=ParseMode.HTML,
-                    reply_markup=reply_markup,
-                    protect_content=PROTECT_CONTENT
-                )
-                await asyncio.sleep(0.1)
-                codeflix_msgs.append(copied_msg)
-            except Exception as e:
-                print(f"Failed to send message: {e}")
-
-        if FILE_AUTO_DELETE > 0:
-            notification_msg = await message.reply(
-                f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ  {get_exp_time(FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
+            # Send first file with Next button (if more remain)
+            btns = []
+            if len(ids) > 1:
+                btns = [[InlineKeyboardButton("➡️ Next", callback_data=f"mbnext_{user_id}_1")]]
+            sent = await client.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=DB_CHANNEL,
+                message_id=first_id
             )
-            reload_url = (
-                f"https://t.me/{client.username}?start={message.command[1]}"
-                if message.command and len(message.command) > 1
-                else None
-            )
-            asyncio.create_task(
-                schedule_auto_delete(client, codeflix_msgs, notification_msg, FILE_AUTO_DELETE, reload_url)
-            )
-    else:
-        reply_markup = InlineKeyboardMarkup(
-            [
-                    [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟ •", url="https://t.me/FilmyflixHD")],
+            if btns:
+                await sent.reply_text("Navigate:", reply_markup=InlineKeyboardMarkup(btns))
 
-    [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
-
-    ]
-            ]
-        )
-        await message.reply_photo(
-            photo=START_PIC,
-            caption=START_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=reply_markup,
-            message_effect_id=5104841245755180586)  # 🔥
-        
-        return
-
-
-
-#=====================================================================================##
-# Don't Remove Credit @CodeFlix_Bots, @rohit_1888
-# Ask Doubt on telegram @CodeflixSupport
-
-
-
-# Create a global dictionary to store chat data
-chat_data_cache = {}
-
-async def not_joined(client: Client, message: Message):
-    temp = await message.reply("<b><i>ᴡᴀɪᴛ ᴀ sᴇᴄ..</i></b>")
-
-    user_id = message.from_user.id
-    buttons = []
-    count = 0
-
-    try:
-        all_channels = await db.show_channels()  # Should return list of (chat_id, mode) tuples
-        for total, chat_id in enumerate(all_channels, start=1):
-            mode = await db.get_channel_mode(chat_id)  # fetch mode 
-
-            await message.reply_chat_action(ChatAction.TYPING)
-
-            if not await is_sub(client, user_id, chat_id):
+            # Auto delete
+            if DELETE_TIME:
+                await asyncio.sleep(DELETE_TIME)
                 try:
-                    # Cache chat info
-                    if chat_id in chat_data_cache:
-                        data = chat_data_cache[chat_id]
-                    else:
-                        data = await client.get_chat(chat_id)
-                        chat_data_cache[chat_id] = data
+                    await sent.delete()
+                except: pass
+            return
 
-                    name = data.title
-
-                    # Generate proper invite link based on the mode
-                    if mode == "on" and not data.username:
-                        invite = await client.create_chat_invite_link(
-                            chat_id=chat_id,
-                            creates_join_request=True,
-                            expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None
-                            )
-                        link = invite.invite_link
-
-                    else:
-                        if data.username:
-                            link = f"https://t.me/{data.username}"
-                        else:
-                            invite = await client.create_chat_invite_link(
-                                chat_id=chat_id,
-                                expire_date=datetime.utcnow() + timedelta(seconds=FSUB_LINK_EXPIRY) if FSUB_LINK_EXPIRY else None)
-                            link = invite.invite_link
-
-                    buttons.append([InlineKeyboardButton(text=name, url=link)])
-                    count += 1
-                    await temp.edit(f"<b>{'! ' * count}</b>")
-
-                except Exception as e:
-                    print(f"Error with chat {chat_id}: {e}")
-                    return await temp.edit(
-                        f"<b><i>! Eʀʀᴏʀ, Cᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @rohit_1888</i></b>\n"
-                        f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
+        # ✅ Existing single/batch file handling
+        if decoded.startswith("get-"):
+            parts = decoded.split("-")[1:]
+            if len(parts) == 1:
+                msg_id = int(parts[0]) // abs(DB_CHANNEL)
+                try:
+                    sent = await client.copy_message(
+                        chat_id=message.chat.id,
+                        from_chat_id=DB_CHANNEL,
+                        message_id=msg_id
                     )
+                    if DELETE_TIME:
+                        await asyncio.sleep(DELETE_TIME)
+                        await sent.delete()
+                except Exception as e:
+                    logger.error(e)
+            elif len(parts) == 2:
+                start_id = int(parts[0]) // abs(DB_CHANNEL)
+                end_id = int(parts[1]) // abs(DB_CHANNEL)
+                for mid in range(start_id, end_id + 1):
+                    try:
+                        sent = await client.copy_message(
+                            chat_id=message.chat.id,
+                            from_chat_id=DB_CHANNEL,
+                            message_id=mid
+                        )
+                        if DELETE_TIME:
+                            await asyncio.sleep(DELETE_TIME)
+                            await sent.delete()
+                    except Exception:
+                        continue
+            return
 
-        # Retry Button
-        try:
-            buttons.append([
-                InlineKeyboardButton(
-                    text='♻️ Tʀʏ Aɢᴀɪɴ',
-                    url=f"https://t.me/{client.username}?start={message.command[1]}"
-                )
-            ])
-        except IndexError:
-            pass
+    # Default start message
+    buttons = [[InlineKeyboardButton("Channel", url="https://t.me/codeflix_bots")]]
+    await message.reply_text(
+        f"👋 Hello {message.from_user.mention}, welcome to FilmyflixHD!",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
-        await message.reply_photo(
-            photo=FORCE_PIC,
-            caption=FORCE_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=InlineKeyboardMarkup(buttons),
-        )
 
-    except Exception as e:
-        print(f"Final Error: {e}")
-        await temp.edit(
-            f"<b><i>! Eʀʀᴏʀ, Cᴏɴᴛᴀᴄᴛ ᴅᴇᴠᴇʟᴏᴘᴇʀ ᴛᴏ sᴏʟᴠᴇ ᴛʜᴇ ɪssᴜᴇs @FilmyflixHD_Supportbot</i></b>\n"
-            f"<blockquote expandable><b>Rᴇᴀsᴏɴ:</b> {e}</blockquote>"
-        )
-
-#=====================================================================================##
-
-@Bot.on_message(filters.command('commands') & filters.private & admin)
-async def bcmd(bot: Bot, message: Message):        
-    reply_markup = InlineKeyboardMarkup([[InlineKeyboardButton("• ᴄʟᴏsᴇ •", callback_data = "close")]])
-    await message.reply(text=CMD_TXT, reply_markup = reply_markup, quote= True)
-
-async def schedule_auto_delete(client, codeflix_msgs, notification_msg, file_auto_delete, reload_url):
-    await asyncio.sleep(file_auto_delete)
-    for snt_msg in codeflix_msgs:
-        if snt_msg:
-            try:
-                await snt_msg.delete()
-            except Exception as e:
-                print(f"Error deleting message {snt_msg.id}: {e}")
-
+# ✅ Handle Next button for multibatch
+@Client.on_callback_query(filters.regex(r"^mbnext_"))
+async def multibatch_next_handler(client: Client, query: CallbackQuery):
     try:
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url)]]
-        ) if reload_url else None
+        _, user_id, idx = query.data.split("_")
+        user_id = int(user_id)
+        idx = int(idx)
 
-        await notification_msg.edit(
-            "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\nᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ᴅᴇʟᴇᴛᴇᴅ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ 👇</b>",
-            reply_markup=keyboard
+        if query.from_user.id != user_id:
+            return await query.answer("This batch is not for you.", show_alert=True)
+
+        ids = await db.get_multibatch_session(user_id)
+        if not ids or idx >= len(ids):
+            return await query.answer("No more files.", show_alert=True)
+
+        msg_id = int(ids[idx]) // abs(DB_CHANNEL)
+        sent = await client.copy_message(
+            chat_id=query.message.chat.id,
+            from_chat_id=DB_CHANNEL,
+            message_id=msg_id
         )
+
+        # Add Next button if not last
+        btns = []
+        if idx + 1 < len(ids):
+            btns = [[InlineKeyboardButton("➡️ Next", callback_data=f"mbnext_{user_id}_{idx+1}")]]
+        if btns:
+            await sent.reply_text("Navigate:", reply_markup=InlineKeyboardMarkup(btns))
+
+        # Auto delete
+        if DELETE_TIME:
+            await asyncio.sleep(DELETE_TIME)
+            try:
+                await sent.delete()
+            except: pass
+
     except Exception as e:
-        print(f"Error updating notification with 'Get File Again' button: {e}")
+        logger.error(f"MultiBatch Next Error: {e}")
+        await query.answer("❌ Error loading next file.", show_alert=True)
