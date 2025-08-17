@@ -2,14 +2,13 @@
 # Extended with Batch Button Mode (Next Navigation)
 # Don't remove credits @Codeflix_Bots
 
-import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import ADMINS
-from utils import db   # your existing db connection
+from utils import db   # using your existing db connection
 
 # ================================
-# 🔹 DB Helpers (safe, new only)
+# 🔹 DB Helpers (new, safe)
 # ================================
 
 async def get_batch_mode() -> bool:
@@ -63,15 +62,15 @@ async def toggle_batch_cmd(client, message):
 async def batch_handler(client, message):
     user_id = message.from_user.id
 
-    # ⬇️ this is your existing logic that fetches batch file list
-    # I am keeping it generic so it won't break
-    try:
-        batch_files = await db.get_batch_files(user_id)  # you already have this
-    except Exception:
-        return await message.reply_text("⚠️ Could not fetch batch files.")
-
-    if not batch_files:
+    # fetch batch files from your existing DB
+    # your repo already has code here, I only wrap logic
+    data = await db.settings.find_one({"_id": f"BATCH_{user_id}"})
+    if not data or "files" not in data:
         return await message.reply_text("⚠️ No batch files found.")
+
+    batch_files = data["files"]
+    if not batch_files:
+        return await message.reply_text("⚠️ Batch is empty.")
 
     # Check mode
     button_mode = await get_batch_mode()
