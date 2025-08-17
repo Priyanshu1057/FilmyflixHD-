@@ -1,98 +1,143 @@
-# link_generator.py
-# Batch Navigation with Back/Next
-# Don't remove credits @Codeflix_Bots
-
+import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from utils import db   # your existing db connection
+from database import db   # ✅ Correct import from your repo
 
-# ================================
-# 🔹 DB Helpers for Temporary Batch
-# ================================
 
-async def save_temp_batch(user_id: int, files: list):
-    """Save temporary batch for a user."""
-    await db.settings.update_one(
-        {"_id": f"TEMP_BATCH_{user_id}"},
-        {"$set": {"files": files}},
-        upsert=True
-    )
+# -------------------------------
+# Handle normal single file links
+# -------------------------------
+@Client.on_message(filters.command("link"))
+async def link_handler(client, message):
+    if not message.reply_to_message:
+        return await message.reply("Reply to a file to generate link!")
 
-async def get_temp_batch(user_id: int):
-    """Get temporary batch for a user."""
-    data = await db.settings.find_one({"_id": f"TEMP_BATCH_{user_id}"})
-    return data["files"] if data else None
+    file_id = message.reply_to_message.id
+    chat_id = message.chat.id
 
-# ================================
-# 🔹 Batch Link Handler
-# ================================
+    # Save in DB
+    await db.files.insert_one({
+        "chat_id": chat_id,
+        "file_id": file_id
+    })
 
+    link = f"https://t.me/{client.username}?start=file_{file_id}"
+    await message.reply(f"Here is your file link:\n{link}")
+
+
+# -------------------------------
+# Handle batch link generation
+# -------------------------------
 @Client.on_message(filters.command("batch"))
 async def batch_handler(client, message):
-    user_id = message.from_user.id
+    if len(message.command) < 3:
+        return await message.reply("Usage: `/batch start_id end_id` (reply IDs from channel)")
 
-    # ⬇️ fetch batch files from DB (your repo already does this, I keep generic)
-    data = await db.settings.find_one({"_id": f"BATCH_{user_id}"})
-    if not data or "files" not in data:
-        return await message.reply_text("⚠️ No batch files found.")
-
-    batch_files = data["files"]
-    if not batch_files:
-        return await message.reply_text("⚠️ Batch is empty.")
-
-    # Always new behavior → send first file with Next button
-    first_file = batch_files[0]
     try:
-        await client.send_cached_media(
+        start = int(message.command[1])
+        end = int(message.command[2])
+    except Exception:
+        return await message.reply("Invalid IDs. Use message IDs only.")
+
+    files = []
+    for i in range(start, end + 1):
+        files.append(i)
+
+    # Save batch in DB
+    batch = await db.batches.insert_one({"files": files})
+    batch_id = str(batch.inserted_id)
+
+    link = f"https://t.me/{client.username}?start=batch_{batch_id}_0"
+    await message.reply(f"Here is your batch link:\n{link}")
+
+
+# -------------------------------
+# Serve files when link clicked
+# -------------------------------
+@Client.on_message(filters.command("start"))
+async def start_handler(client, message):
+    if len(message.command) < 2:
+        return await message.reply("Hello! Send me a link to get files.")
+
+    arg = message.command[1]
+
+    # Single File
+    if arg.startswith("file_"):
+        file_id = int(arg.split("_", 1)[1])
+        await client.copy_message(
             chat_id=message.chat.id,
-            file_id=first_file,
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("➡️ Next", callback_data=f"batchnav_{user_id}_0")]]
-            ) if len(batch_files) > 1 else None
+            from_chat_id=message.chat.id,
+            message_id=file_id
         )
-    except Exception as e:
-        await message.reply_text(f"❌ Error sending file: {e}")
 
-    # Save batch temporarily
-    await save_temp_batch(user_id, batch_files)
+    # Batch Navigation
+    elif arg.startswith("batch_"):
+        parts = arg.split("_")
+        batch_id = parts[1]
+        index = int(parts[2])
 
-# ================================
-# 🔹 Back/Next Button Handler
-# ================================
+        batch = await db.batches.find_one({"_id": db.ObjectId(batch_id)})
+        if not batch:
+            return await message.reply("Batch not found!")
 
-@Client.on_callback_query(filters.regex(r"^batchnav_(\d+)_(\d+)$"))
-async def batch_nav_callback(client, query: CallbackQuery):
-    user_id = int(query.matches[0].group(1))
-    index = int(query.matches[0].group(2))
+        files = batch["files"]
 
-    if query.from_user.id != user_id:
-        return await query.answer("❌ This button is not for you!", show_alert=True)
+        if index < 0 or index >= len(files):
+            return await message.reply("Invalid file index!")
 
-    # Load batch from DB
-    batch_files = await get_temp_batch(user_id)
-    if not batch_files:
-        return await query.answer("⚠️ Batch expired or not found.", show_alert=True)
+        file_id = files[index]
 
-    next_index = index + 1
-    prev_index = index - 1
+        # Send file
+        await client.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=message.chat.id,
+            message_id=file_id,
+            reply_markup=gen_nav_buttons(batch_id, index, len(files))
+        )
 
-    # Build navigation buttons
+
+# -------------------------------
+# Navigation buttons
+# -------------------------------
+def gen_nav_buttons(batch_id, index, total):
     buttons = []
-    if prev_index >= 0:
-        buttons.append(InlineKeyboardButton("⬅️ Back", callback_data=f"batchnav_{user_id}_{prev_index}"))
-    if next_index < len(batch_files):
-        buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"batchnav_{user_id}_{next_index}"))
 
-    next_file = batch_files[index]
+    nav_row = []
+    if index > 0:
+        nav_row.append(InlineKeyboardButton("⏮️ Back", callback_data=f"batchnav_{batch_id}_{index-1}"))
+    if index < total - 1:
+        nav_row.append(InlineKeyboardButton("⏭️ Next", callback_data=f"batchnav_{batch_id}_{index+1}"))
 
-    # Send next/prev file
-    try:
-        await client.send_cached_media(
-            chat_id=query.message.chat.id,
-            file_id=next_file,
-            reply_markup=InlineKeyboardMarkup([buttons]) if buttons else None
-        )
-    except Exception as e:
-        await query.message.reply_text(f"❌ Error sending file: {e}")
+    if nav_row:
+        buttons.append(nav_row)
 
-    await query.answer()
+    return InlineKeyboardMarkup(buttons) if buttons else None
+
+
+# -------------------------------
+# Callback for navigation
+# -------------------------------
+@Client.on_callback_query(filters.regex(r"^batchnav_"))
+async def batch_nav_callback(client, cq: CallbackQuery):
+    _, batch_id, index = cq.data.split("_")
+    index = int(index)
+
+    batch = await db.batches.find_one({"_id": db.ObjectId(batch_id)})
+    if not batch:
+        return await cq.message.reply("Batch not found!")
+
+    files = batch["files"]
+    if index < 0 or index >= len(files):
+        return await cq.answer("Invalid index!", show_alert=True)
+
+    file_id = files[index]
+
+    # Send new file as NEW message
+    await client.copy_message(
+        chat_id=cq.message.chat.id,
+        from_chat_id=cq.message.chat.id,
+        message_id=file_id,
+        reply_markup=gen_nav_buttons(batch_id, index, len(files))
+    )
+
+    await cq.answer()
