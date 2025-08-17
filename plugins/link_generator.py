@@ -4,7 +4,7 @@
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from config import ADMINS
+from config import Admin
 from utils import db   # using your existing db connection
 
 # ================================
