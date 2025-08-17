@@ -1,5 +1,5 @@
 # link_generator.py
-# Batch Next Navigation (permanent mode)
+# Batch Navigation with Back/Next
 # Don't remove credits @Codeflix_Bots
 
 from pyrogram import Client, filters
@@ -47,7 +47,7 @@ async def batch_handler(client, message):
             chat_id=message.chat.id,
             file_id=first_file,
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("➡️ Next", callback_data=f"nextfile_{user_id}_0")]]
+                [[InlineKeyboardButton("➡️ Next", callback_data=f"batchnav_{user_id}_0")]]
             ) if len(batch_files) > 1 else None
         )
     except Exception as e:
@@ -57,11 +57,11 @@ async def batch_handler(client, message):
     await save_temp_batch(user_id, batch_files)
 
 # ================================
-# 🔹 Next Button Handler
+# 🔹 Back/Next Button Handler
 # ================================
 
-@Client.on_callback_query(filters.regex(r"^nextfile_(\d+)_(\d+)$"))
-async def next_file_callback(client, query: CallbackQuery):
+@Client.on_callback_query(filters.regex(r"^batchnav_(\d+)_(\d+)$"))
+async def batch_nav_callback(client, query: CallbackQuery):
     user_id = int(query.matches[0].group(1))
     index = int(query.matches[0].group(2))
 
@@ -74,19 +74,23 @@ async def next_file_callback(client, query: CallbackQuery):
         return await query.answer("⚠️ Batch expired or not found.", show_alert=True)
 
     next_index = index + 1
-    if next_index >= len(batch_files):
-        return await query.answer("✅ You reached the end of this batch.", show_alert=True)
+    prev_index = index - 1
 
-    next_file = batch_files[next_index]
+    # Build navigation buttons
+    buttons = []
+    if prev_index >= 0:
+        buttons.append(InlineKeyboardButton("⬅️ Back", callback_data=f"batchnav_{user_id}_{prev_index}"))
+    if next_index < len(batch_files):
+        buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"batchnav_{user_id}_{next_index}"))
 
-    # Send next file
+    next_file = batch_files[index]
+
+    # Send next/prev file
     try:
         await client.send_cached_media(
             chat_id=query.message.chat.id,
             file_id=next_file,
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("➡️ Next", callback_data=f"nextfile_{user_id}_{next_index}")]]
-            ) if next_index + 1 < len(batch_files) else None
+            reply_markup=InlineKeyboardMarkup([buttons]) if buttons else None
         )
     except Exception as e:
         await query.message.reply_text(f"❌ Error sending file: {e}")
