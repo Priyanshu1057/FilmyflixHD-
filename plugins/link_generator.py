@@ -1,31 +1,14 @@
 # link_generator.py
-# Extended with Batch Button Mode (Next Navigation)
+# Batch Next Navigation (permanent mode)
 # Don't remove credits @Codeflix_Bots
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from config import Owner
-from utils import db   # using your existing db connection
+from utils import db   # your existing db connection
 
 # ================================
-# 🔹 DB Helpers (new, safe)
+# 🔹 DB Helpers for Temporary Batch
 # ================================
-
-async def get_batch_mode() -> bool:
-    """Get batch mode setting from DB (default False)."""
-    data = await db.settings.find_one({"_id": "BATCH_BUTTON_MODE"})
-    return bool(data["value"]) if data else False
-
-async def toggle_batch_mode() -> bool:
-    """Toggle batch mode and return new value."""
-    current = await get_batch_mode()
-    new_value = not current
-    await db.settings.update_one(
-        {"_id": "BATCH_BUTTON_MODE"},
-        {"$set": {"value": new_value}},
-        upsert=True
-    )
-    return new_value
 
 async def save_temp_batch(user_id: int, files: list):
     """Save temporary batch for a user."""
@@ -41,20 +24,6 @@ async def get_temp_batch(user_id: int):
     return data["files"] if data else None
 
 # ================================
-# 🔹 Toggle Command
-# ================================
-
-@Client.on_message(filters.command("togglebatchmode"))
-async def toggle_batch_cmd(client, message):
-    if message.from_user.id not in ADMINS:
-        return await message.reply_text("❌ You are not allowed to use this command.")
-    mode = await toggle_batch_mode()
-    if mode:
-        await message.reply_text("✅ Batch Button Mode Enabled.\nNow batches send one by one with ➡️ Next button.")
-    else:
-        await message.reply_text("❌ Batch Button Mode Disabled.\nNow batches send all files at once.")
-
-# ================================
 # 🔹 Batch Link Handler
 # ================================
 
@@ -62,8 +31,7 @@ async def toggle_batch_cmd(client, message):
 async def batch_handler(client, message):
     user_id = message.from_user.id
 
-    # fetch batch files from your existing DB
-    # your repo already has code here, I only wrap logic
+    # ⬇️ fetch batch files from DB (your repo already does this, I keep generic)
     data = await db.settings.find_one({"_id": f"BATCH_{user_id}"})
     if not data or "files" not in data:
         return await message.reply_text("⚠️ No batch files found.")
@@ -72,22 +40,7 @@ async def batch_handler(client, message):
     if not batch_files:
         return await message.reply_text("⚠️ Batch is empty.")
 
-    # Check mode
-    button_mode = await get_batch_mode()
-
-    if not button_mode:
-        # Old behavior → send all files
-        for file_id in batch_files:
-            try:
-                await client.send_cached_media(
-                    chat_id=message.chat.id,
-                    file_id=file_id
-                )
-            except Exception as e:
-                await message.reply_text(f"❌ Error sending file: {e}")
-        return
-
-    # New behavior → send first file with Next button
+    # Always new behavior → send first file with Next button
     first_file = batch_files[0]
     try:
         await client.send_cached_media(
